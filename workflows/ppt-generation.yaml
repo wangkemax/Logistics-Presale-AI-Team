@@ -1,0 +1,82 @@
+# PPT 生成工作流
+
+name: PPT Generation Workflow
+description: 投标展示材料自动生成子工作流
+
+## 触发条件
+
+Tender Writer Agent 完成投标书初稿后，或 CEO 下令生成汇报材料时。
+
+## 输入清单
+
+- 招标文件解析报告
+- Logistics Architect 解决方案文档
+- Cost Model 成本与报价摘要
+- Data Analyst 数据洞察图表
+- Tender Writer 投标书执行摘要
+- 公司介绍材料（Knowledge Base 提供）
+
+## PPT 生成步骤
+
+### Step 1：内容规划
+- 确定 PPT 目标受众（客户决策层 / 评审专家组 / 商务谈判）
+- 确定页数范围和章节结构
+- 分配各 Agent 输出内容的展示比例
+
+### Step 2：结构设计（建议框架）
+```
+封面
+├─ 公司介绍（1-2页）
+├─ 项目理解（1页）
+├─ 解决方案（3-5页）
+│   ├─ 方案概览
+│   ├─ 核心能力
+│   └─ 差异化亮点
+├─ 成本与报价（1-2页）
+├─ 数据支撑（1-2页）
+├─ 实施计划（1页）
+├─ 成功案例（1-2页）
+└─ 结尾（1页）
+```
+
+### Step 3：图表建议
+- 仓库布局图（供 Logistics Architect 提供）
+- 成本结构饼图/柱图（供 Cost Model 提供）
+- 运营数据趋势图（供 Data Analyst 提供）
+- 项目时间轴/甘特图（供 Tender Writer 提供）
+
+### Step 4：风格规范
+- 配色方案（公司品牌色或客户偏好）
+- 字体规范（标题/正文/数据标注）
+- Logo 放置规则
+- 保密声明页（底部）
+
+## 输出格式
+
+```yaml
+[Summary]: PPT 生成方案结论
+
+[Structured Output]:
+  - 页面结构: xxx
+  - 每页内容要点: xxx
+  - 图表建议（类型/数据来源/展示角度）: xxx
+  - 风格规范: xxx
+  - 生成工具建议（PowerPoint/n8n/AutoPP）: xxx
+
+[Risks / Missing Info]:
+  - 缺失素材: xxx
+  - 需人工补充内容: xxx
+  - 版权风险（图片/图标）: xxx
+```
+
+## 禁止事项
+
+- 不直接生成完整 PPT 文件（由 Automation Agent 调用工具链完成）
+- 不写入未经验证的数据
+- 不包含竞争对手负面信息
+- 不泄露保密内容
+
+## 输出流向
+
+- → Automation Agent（接入 PPT 生成工具和模板）
+- → Tender Writer Agent（审核文字内容准确性）
