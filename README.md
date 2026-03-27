@@ -93,8 +93,7 @@ Logistics-Presale-AI-Team/
 │   ├── ppt-generation.yaml
 │   └── project-init-template.md  ← v2.1新增：阶段0模板
 ├── AI-Knowledge-Base/             # 知识库
-├── porsche-rfq/                  # 保时捷投标实战资料
-├── tender-analysis/               # 投标分析文档
+├── tender-analysis/               # 投标分析文档（参考）
 ├── AGENTS_EXECUTION_GUIDE.md     ← v2.1新增：执行指南
 ├── CHANGELOG.md                  ← v2.1新增：版本记录
 └── README.md

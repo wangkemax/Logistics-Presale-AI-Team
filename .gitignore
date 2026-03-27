@@ -9,3 +9,7 @@ build/
 dist/
 *.egg-info/
 .env
+
+# 项目敏感文件
+porsche-rfq/
+tender-analysis/
