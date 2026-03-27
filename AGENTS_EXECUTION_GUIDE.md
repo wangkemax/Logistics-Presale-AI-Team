@@ -149,6 +149,33 @@ subagents action=kill target="<session_key>"  # 终止
 # 确保文件路径和内容都传入了 prompt
 ```
 
+### Agent 提前 Yield 导致输出不完整
+**问题描述：** Logistics Architect 等 Agent 在任务开始后立即 yield（发出 "Task received" 信号），在完整输出前就停止。
+
+**预防措施：**
+1. 在 prompt_template 中明确添加约束：
+   ```
+   IMPORTANT: Do NOT yield or pause until you have written the COMPLETE solution.
+   Do NOT stop early for any reason — write every section to completion.
+   If you yield accidentally, immediately continue writing until finished.
+   ```
+2. Architect 作业超时设为 15 分钟（而不是默认的 10 分钟）
+3. 如果 Agent yield 后立即返回 "completed successfully"，检查输出是否完整
+4. **如果输出不完整，立即重新派发该 Agent**
+
+**检测方法：**
+- 检查 session history 中的 output token 数量
+- 如果 Architect 输出 < 2000 tokens，很可能是 yield 后提前结束
+- 正常完整的方案设计输出应该在 5000+ tokens
+
+**处理流程：**
+```
+sessions_history sessionKey="<session_key>" limit=5
+# 检查 output 是否完整
+# 如果不完整：
+sessions_spawn task="<same task, re-run>" label="<same-label>-v2"
+```
+
 ---
 
 ## Google Drive 自动上传（可选）

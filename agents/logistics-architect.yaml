@@ -36,7 +36,13 @@ prompt_template: |
 
   Design a complete logistics operation solution based on project requirements.
 
-  Your solution must include:
+  IMPORTANT CONSTRAINTS:
+  - Do NOT yield or pause until you have written the COMPLETE solution document
+  - Do NOT stop early for any reason — write every section to completion
+  - If you yield accidentally, immediately continue writing until the document is finished
+  - The complete output must include all 8 sections listed below
+
+  Your solution must include ALL of the following sections:
   1. Warehouse functional zoning (receiving, storage, picking, packing, shipping, returns)
   2. Operational workflow (end-to-end process description)
   3. Storage strategy (storage density approach, rack type, yard plan)

@@ -63,6 +63,34 @@
 
 ---
 
+## v2.2 (2026-03-28) — Architect Agent Yield 修复
+
+### 修复的问题
+
+#### P1：Logistics Architect Agent 提前 Yield 导致输出不完整
+**问题：** Architect Agent 在任务开始后立即 yield（发出 "Task received" 信号），在完整方案输出前就结束，导致只有 775 tokens 输出而非完整的 5000+ tokens。
+
+**根因：** Agent 执行流程中存在 yield 信号机制，Architect 在思考阶段就发出 yield，未完成完整文档输出。
+
+**修复：**
+- 更新 `agents/logistics-architect.yaml`，在 prompt_template 中新增强制约束：
+  ```
+  IMPORTANT CONSTRAINTS:
+  - Do NOT yield or pause until you have written the COMPLETE solution document
+  - Do NOT stop early for any reason — write every section to completion
+  - If you yield accidentally, immediately continue writing until the document is finished
+  ```
+- 在 `AGENTS_EXECUTION_GUIDE.md` 中新增"Agent 提前 Yield 处理"章节，包含预防措施、检测方法和处理流程
+
+### 更新的文件
+
+| 文件 | 变更 |
+|------|------|
+| `agents/logistics-architect.yaml` | 新增 yield 禁止约束，强制完整输出 |
+| `AGENTS_EXECUTION_GUIDE.md` | 新增"Agent 提前 Yield"已知问题处理章节 |
+
+---
+
 ## v2.0 (2026-03-25) — 初始版本
 
 - 10个核心 Agent 定义（YAML格式）
