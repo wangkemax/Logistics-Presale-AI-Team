@@ -1,0 +1,36 @@
+name: Solution Design Workflow
+description: 独立方案设计工作流 — 用于客户需求确认后的详细方案设计
+
+stages:
+  - id: sd_1
+    name: 方案架构设计
+    agent: Logistics Architect Agent
+    parallel: false
+    output: 仓库分区、作业流程、人员配置、IT系统要求
+
+  - id: sd_2
+    name: 自动化方案推荐
+    agent: Automation Solution Agent
+    parallel: false
+    output: 推荐方案列表（含投资估算、效率提升、ROI）
+
+  - id: sd_3
+    name: 成本测算
+    agent: Cost Model Agent
+    parallel: false
+    output: 完整成本模型（仓租、人力、设备、自动化ROI）
+
+  - id: sd_4
+    name: 风险分析
+    agent: Risk & Compliance Agent
+    parallel: false
+    output: 风险矩阵 + 缓解策略
+
+  - id: sd_5
+    name: 方案整合
+    agent: Tender Writer Agent
+    parallel: false
+    output: 完整方案文档
+
+trigger: 需求确认后自动启动
+output_format: Markdown + PDF

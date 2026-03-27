@@ -1,0 +1,33 @@
+name: PPT Generation Workflow
+description: 投标演示文稿生成工作流 — 从方案文档生成专业PPT
+
+stages:
+  - id: ppt_1
+    name: 内容提炼
+    description: 从投标方案文档中提炼PPT关键内容
+    output: PPT大纲（8-15页）
+
+  - id: ppt_2
+    name: 视觉设计
+    description: 生成每页内容 + 布局建议 + 图表数据
+    output: 分页内容脚本
+
+  - id: ppt_3
+    name: PPT生成
+    description: 使用 python-pptx 生成PPTX文件
+    output: 完整PPT文件
+
+trigger: Tender Writer 输出完成
+output_format: PPTX
+pages: 8-15
+typical_slides:
+  - 封面（项目名称、公司名称、日期）
+  - 目录
+  - 项目理解
+  - 物流解决方案
+  - 自动化策略
+  - 成本结构
+  - 实施路线图
+  - 风险管理
+  - 公司资质
+  - 联系方式

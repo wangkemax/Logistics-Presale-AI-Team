@@ -1,0 +1,113 @@
+name: Tender Workflow
+description: 完整投标工作流 — 从招标文件解析到方案生成
+
+stages:
+  - id: stage_1_requirement_extraction
+    name: 需求提取
+    agent: Tender Requirement Extractor
+    input: 招标文件 + 附件 + 客户需求
+    output: 结构化需求 JSON
+    depends_on: []
+    parallel: false
+
+  - id: stage_2_requirement_clarification
+    name: 需求澄清
+    agent: Requirement Clarifier
+    input: stage_1 输出
+    output: 确认需求 + 缺失数据 + 澄清问题
+    depends_on: [stage_1_requirement_extraction]
+    parallel: false
+
+  - id: stage_3_data_analysis
+    name: 数据分析
+    agent: Data Analyst
+    input: 客户原始数据
+    output: 数据洞察 + 推荐参数
+    depends_on: [stage_1_requirement_extraction]
+    parallel: true
+
+  - id: stage_4_knowledge_retrieval
+    name: 知识检索
+    agent: Knowledge Base Agent
+    input: 项目参数（行业、规模、自动化期望）
+    output: 相关知识文档摘要
+    depends_on: [stage_1_requirement_extraction]
+    parallel: true
+
+  - id: stage_5_solution_design
+    name: 方案设计
+    agent: Logistics Architect Agent
+    input: stage_1 + stage_2 + stage_3 输出
+    output: 物流解决方案（含分区、流程、人员、IT架构）
+    depends_on: [stage_2_requirement_clarification, stage_3_data_analysis]
+    parallel: false
+
+  - id: stage_6_automation_recommendation
+    name: 自动化推荐
+    agent: Automation Solution Agent
+    input: 业务规模 + 人工成本 + 仓库条件 + 预算
+    output: Top 5 自动化方案（含评分、投资、ROI）
+    depends_on: [stage_2_requirement_clarification]
+    parallel: false
+
+  - id: stage_7_benchmark
+    name: 案例匹配
+    agent: Benchmark Agent
+    input: 项目参数
+    output: 3个相似案例 + 经验教训
+    depends_on: [stage_1_requirement_extraction]
+    parallel: true
+
+  - id: stage_8_cost_model
+    name: 成本建模
+    agent: Cost Model Agent
+    input: stage_5 + stage_6 输出 + 业务数据
+    output: 年度成本分解 + ROI + IRR + NPV + 回本周期
+    depends_on: [stage_5_solution_design, stage_6_automation_recommendation]
+    parallel: false
+
+  - id: stage_9_risk_assessment
+    name: 风险评估
+    agent: Risk & Compliance Agent
+    input: stage_5 + stage_6 + stage_8 输出
+    output: 风险登记册 + 合规清单 + Go/No-Go 建议
+    depends_on: [stage_5_solution_design, stage_6_automation_recommendation, stage_8_cost_model]
+    parallel: false
+
+  - id: stage_10_qa_review_1
+    name: QA 一审
+    agent: QA Agent
+    input: stage_5 + stage_6 + stage_8 输出
+    output: 质量问题清单 + P0/P1/P2
+    depends_on: [stage_5_solution_design, stage_6_automation_recommendation, stage_8_cost_model]
+    parallel: false
+
+  - id: stage_11_tender_draft
+    name: 标书起草
+    agent: Tender Writer Agent
+    input: 所有 Agent 输出
+    output: 完整投标方案文档
+    depends_on: [stage_10_qa_review_1]
+    parallel: false
+    condition: "QA verdict must be PASS or CONDITIONAL PASS"
+
+  - id: stage_12_qa_review_2
+    name: QA 二审
+    agent: QA Agent
+    input: stage_11 输出
+    output: 最终质量审核报告
+    depends_on: [stage_11_tender_draft]
+    parallel: false
+
+final_output:
+  - 项目理解文档
+  - 物流解决方案设计
+  - 自动化推荐方案（含评分）
+  - 成本模型摘要
+  - 风险评估报告
+  - 完整投标方案文档
+
+qa_gate: true
+qa_required_stages:
+  - stage_10_qa_review_1
+  - stage_12_qa_review_2
