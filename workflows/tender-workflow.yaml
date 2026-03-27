@@ -1,113 +1,279 @@
-name: Tender Workflow
-description: 完整投标工作流 — 从招标文件解析到方案生成
+name: Tender Workflow v2
+description: 完整投标工作流 v2 — 含状态管理、QA门禁、共享假设、自动追踪
+
+# ============================================================
+# 核心改进（相比 v1）：
+# 1. 引入共享状态文件机制，所有 Agent 读写统一路径
+# 2. QA Agent 必须接收完整文档内容，禁止自行扫描文件系统
+# 3. 阶段0生成 project_assumptions.md，所有 Agent 共享假设基准
+# 4. 每个阶段结果写入 stage_N_output.md，下一阶段自动读取
+# 5. 添加超时设置和错误处理
+# ============================================================
 
 stages:
+  # ---------- 阶段0：项目初始化（必须先跑）----------
+  - id: stage_0_init
+    name: 项目初始化
+    agent: none  # CEO 直接执行
+    output_file: stage_0_project_assumptions.md
+    timeout_minutes: 5
+    description: |
+      创建项目工作目录，生成 project_assumptions.md。
+      该文件是所有后续 Agent 的假设基准，禁止 Agent 自行假设。
+    output_fields:
+      - project_name
+      - client_name
+      - location
+      - contract_years
+      - go_live_date
+      - industry
+      - region
+      - labor_cost_factor
+      - rent_factor
+      - peak_assumption
+      - automation_budget_range
+      - missing_data_P0
+      - missing_data_P1
+    parallel: false
+
+  # ---------- 阶段1：需求提取 ----------
   - id: stage_1_requirement_extraction
     name: 需求提取
     agent: Tender Requirement Extractor
-    input: 招标文件 + 附件 + 客户需求
-    output: 结构化需求 JSON
-    depends_on: []
+    input_file: null  # 读取招标文件
+    output_file: stage_1_requirement_extraction.md
+    depends_on: [stage_0_init]
     parallel: false
+    timeout_minutes: 10
+    error_strategy: retry_once
+    prompt_note: |
+      必须先读取 stage_0_project_assumptions.md 获取共享假设。
+      所有未在文档中找到的数据，必须引用 assumptions 文件中的估算值，并标注 [ASSUMPTION] 标签。
 
+  # ---------- 阶段2：需求澄清 ----------
   - id: stage_2_requirement_clarification
     name: 需求澄清
     agent: Requirement Clarifier
-    input: stage_1 输出
-    output: 确认需求 + 缺失数据 + 澄清问题
+    input_files:
+      - stage_0_project_assumptions.md
+      - stage_1_requirement_extraction.md
+    output_file: stage_2_requirement_clarification.md
     depends_on: [stage_1_requirement_extraction]
     parallel: false
+    timeout_minutes: 8
+    error_strategy: retry_once
+    prompt_note: |
+      必须读取 input_files 中的所有文件。
+      识别 P0/P1 缺失数据，所有假设必须引用 assumptions 文件。
 
+  # ---------- 阶段3-4：并行阶段 ----------
   - id: stage_3_data_analysis
     name: 数据分析
     agent: Data Analyst
-    input: 客户原始数据
-    output: 数据洞察 + 推荐参数
+    input_files:
+      - stage_0_project_assumptions.md
+      - stage_1_requirement_extraction.md
+    output_file: stage_3_data_analysis.md
     depends_on: [stage_1_requirement_extraction]
     parallel: true
+    timeout_minutes: 10
 
   - id: stage_4_knowledge_retrieval
     name: 知识检索
     agent: Knowledge Base Agent
-    input: 项目参数（行业、规模、自动化期望）
-    output: 相关知识文档摘要
+    input_files:
+      - stage_0_project_assumptions.md
+      - stage_1_requirement_extraction.md
+    output_file: stage_4_knowledge_retrieval.md
     depends_on: [stage_1_requirement_extraction]
     parallel: true
+    timeout_minutes: 8
 
   - id: stage_5_solution_design
     name: 方案设计
     agent: Logistics Architect Agent
-    input: stage_1 + stage_2 + stage_3 输出
-    output: 物流解决方案（含分区、流程、人员、IT架构）
+    input_files:
+      - stage_0_project_assumptions.md
+      - stage_2_requirement_clarification.md
+      - stage_3_data_analysis.md
+    output_file: stage_5_solution_design.md
     depends_on: [stage_2_requirement_clarification, stage_3_data_analysis]
     parallel: false
+    timeout_minutes: 15
+    prompt_note: |
+      所有面积、人数、设备数量必须来自 assumptions 文件中的 P0/P1 估算。
+      在文档中明确标注 [ASSUMPTION] 并引用来源假设编号。
 
   - id: stage_6_automation_recommendation
     name: 自动化推荐
     agent: Automation Solution Agent
-    input: 业务规模 + 人工成本 + 仓库条件 + 预算
-    output: Top 5 自动化方案（含评分、投资、ROI）
+    input_files:
+      - stage_0_project_assumptions.md
+      - stage_2_requirement_clarification.md
+    output_file: stage_6_automation_recommendation.md
     depends_on: [stage_2_requirement_clarification]
     parallel: false
+    timeout_minutes: 15
+    prompt_note: |
+      所有业务参数（SKU、订单量、仓库面积）必须来自 assumptions 文件。
+      自动化评分必须包含 ASSUMPTION 标签说明估算依据。
 
   - id: stage_7_benchmark
     name: 案例匹配
     agent: Benchmark Agent
-    input: 项目参数
-    output: 3个相似案例 + 经验教训
+    input_files:
+      - stage_0_project_assumptions.md
+      - stage_1_requirement_extraction.md
+    output_file: stage_7_benchmark.md
     depends_on: [stage_1_requirement_extraction]
     parallel: true
+    timeout_minutes: 10
 
   - id: stage_8_cost_model
     name: 成本建模
     agent: Cost Model Agent
-    input: stage_5 + stage_6 输出 + 业务数据
-    output: 年度成本分解 + ROI + IRR + NPV + 回本周期
+    input_files:
+      - stage_0_project_assumptions.md
+      - stage_5_solution_design.md
+      - stage_6_automation_recommendation.md
+    output_file: stage_8_cost_model.md
     depends_on: [stage_5_solution_design, stage_6_automation_recommendation]
     parallel: false
+    timeout_minutes: 15
+    prompt_note: |
+      所有成本参数（人工、租金、设备）必须引用 assumptions 文件中的地区系数。
+      成本模型结果必须与 solution_design 保持数值一致。
 
   - id: stage_9_risk_assessment
     name: 风险评估
     agent: Risk & Compliance Agent
-    input: stage_5 + stage_6 + stage_8 输出
-    output: 风险登记册 + 合规清单 + Go/No-Go 建议
+    input_files:
+      - stage_0_project_assumptions.md
+      - stage_5_solution_design.md
+      - stage_6_automation_recommendation.md
+      - stage_8_cost_model.md
+    output_file: stage_9_risk_assessment.md
     depends_on: [stage_5_solution_design, stage_6_automation_recommendation, stage_8_cost_model]
     parallel: false
+    timeout_minutes: 10
 
+  # ---------- QA 门禁（强制） ----------
   - id: stage_10_qa_review_1
     name: QA 一审
     agent: QA Agent
-    input: stage_5 + stage_6 + stage_8 输出
-    output: 质量问题清单 + P0/P1/P2
-    depends_on: [stage_5_solution_design, stage_6_automation_recommendation, stage_8_cost_model]
+    input_files:
+      - stage_1_requirement_extraction.md
+      - stage_2_requirement_clarification.md
+      - stage_5_solution_design.md
+      - stage_6_automation_recommendation.md
+      - stage_8_cost_model.md
+    output_file: stage_10_qa_review_1.md
+    depends_on: [stage_9_risk_assessment]
     parallel: false
+    timeout_minutes: 10
+    qa_gate: true  # 强制质量门禁
+    qa_input_mode: inline  # 关键修复：必须读取 input_files 内容作为输入，禁止自行扫描文件系统
+    qa_prompt_note: |
+      重要：不要扫描文件系统获取文档内容。
+      必须通过 input_files 参数读取上述文件。
+      如果文件不存在或内容为空，报告为 P0 错误。
+      P0 级别问题必须修复后才能进入下一阶段。
 
+  # ---------- 阶段11：标书起草 ----------
   - id: stage_11_tender_draft
     name: 标书起草
     agent: Tender Writer Agent
-    input: 所有 Agent 输出
-    output: 完整投标方案文档
+    input_files:
+      - stage_0_project_assumptions.md
+      - stage_1_requirement_extraction.md
+      - stage_2_requirement_clarification.md
+      - stage_5_solution_design.md
+      - stage_6_automation_recommendation.md
+      - stage_8_cost_model.md
+      - stage_9_risk_assessment.md
+      - stage_10_qa_review_1.md
+    output_file: stage_11_tender_draft.md
     depends_on: [stage_10_qa_review_1]
     parallel: false
+    timeout_minutes: 15
     condition: "QA verdict must be PASS or CONDITIONAL PASS"
+    qa_gate: true
 
+  # ---------- QA 二审 ----------
   - id: stage_12_qa_review_2
     name: QA 二审
     agent: QA Agent
-    input: stage_11 输出
-    output: 最终质量审核报告
+    input_files:
+      - stage_11_tender_draft.md
+    output_file: stage_12_qa_review_2.md
     depends_on: [stage_11_tender_draft]
     parallel: false
+    timeout_minutes: 10
+    qa_gate: true
+    qa_input_mode: inline
 
-final_output:
-  - 项目理解文档
-  - 物流解决方案设计
-  - 自动化推荐方案（含评分）
-  - 成本模型摘要
-  - 风险评估报告
-  - 完整投标方案文档
+# ============================================================
+# 共享状态管理
+# ============================================================
+state_management:
+  workspace_root: "project_workspace/{project_id}/"
+  shared_files:
+    - id: assumptions
+      file: "stage_0_project_assumptions.md"
+      description: "所有 Agent 的共享假设基准"
+    - id: tender_extract
+      file: "stage_1_requirement_extraction.md"
+    - id: clarification
+      file: "stage_2_requirement_clarification.md"
+    - id: logistics_design
+      file: "stage_5_solution_design.md"
+    - id: automation
+      file: "stage_6_automation_recommendation.md"
+    - id: cost_model
+      file: "stage_8_cost_model.md"
+    - id: tender_draft
+      file: "stage_11_tender_draft.md"
 
-qa_gate: true
-qa_required_stages:
-  - stage_10_qa_review_1
-  - stage_12_qa_review_2
+# ============================================================
+# QA 强制门禁规则
+# ============================================================
+qa_gate:
+  enabled: true
+  p0_blocks_proceed: true  # P0 必须修复
+  qa_required_for:
+    - stage_10_qa_review_1
+    - stage_12_qa_review_2
+
+# ============================================================
+# Agent 超时配置（分钟）
+# ============================================================
+timeouts:
+  requirement_extractor: 10
+  requirement_clarifier: 8
+  logistics_architect: 15
+  automation_solution: 15
+  cost_model: 15
+  benchmark: 10
+  risk_compliance: 10
+  tender_writer: 15
+  qa_agent: 10
+  data_analyst: 10
+  knowledge_base: 8
+
+# ============================================================
+# 错误处理策略
+# ============================================================
+error_handling:
+  default_strategy: retry_once
+  timeout_action: escalate_to_ceo
+  qa_fail_action: block_proceed
+
+# ============================================================
+# 最终交付物
+# ============================================================
+final_outputs:
+  - tender_document: "stage_11_tender_draft.md"
+  - qa_report: "stage_12_qa_review_2.md"
+  - cost_summary: "stage_8_cost_model.md"
+  - automation_plan: "stage_6_automation_recommendation.md"
+  - project_assumptions: "stage_0_project_assumptions.md"

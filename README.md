@@ -26,7 +26,7 @@ Presale CEO Agent
 
 ---
 
-## 核心 Agent（10个）
+## 核心 Agent（11个）
 
 | Agent | 核心任务 |
 |-------|---------|
@@ -40,26 +40,32 @@ Presale CEO Agent
 | Risk & Compliance Agent | 风险识别与合规检查 |
 | Tender Writer Agent | 生成专业投标文档 |
 | Knowledge Base Agent | 知识库检索 |
-
-配套 Agent：QA Agent（质量审核）、Data Analyst（数据分析）
-
----
-
-## 关键数据库
-
-系统真正能力来自：
-
-1. **自动化场景数据库** — `AI-Knowledge-Base/automation_cases/`
-2. **成本模型** — `AI-Knowledge-Base/cost_models/`
-3. **案例知识库** — `AI-Knowledge-Base/logistics_cases/`
+| QA Agent | 质量审核（QA门禁，P0问题禁止通过） |
 
 ---
 
 ## 工作流
 
-- `workflows/tender-workflow.yaml` — 完整投标流程（12阶段，QA门禁）
-- `workflows/solution-design.yaml` — 方案设计流程
-- `workflows/ppt-generation.yaml` — PPT生成流程
+| 文件 | 用途 |
+|------|------|
+| `workflows/tender-workflow.yaml` | 完整投标流程（12阶段，QA门禁，v2改进版） |
+| `workflows/solution-design.yaml` | 方案设计独立工作流 |
+| `workflows/ppt-generation.yaml` | PPT生成工作流 |
+| `workflows/project-init-template.md` | 项目初始化模板（阶段0） |
+
+---
+
+## v2.1 改进（2026-03-28）
+
+相比 v2.0 的关键修复：
+
+1. **QA Agent 输入模式修复** — 强制内联传入文档内容，禁止自行扫描文件系统
+2. **共享状态文件机制** — 所有 Agent 通过 `stage_N_output.md` 共享状态
+3. **项目假设基准文件** — 阶段0生成 `stage_0_project_assumptions.md`，所有 Agent 共享假设
+4. **Agent 追踪机制** — 标准 label 命名 + sessions_list 主动追踪
+5. **超时配置** — 每个 Agent 设置超时分钟数，防止无限挂起
+
+详见 [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
@@ -67,7 +73,7 @@ Presale CEO Agent
 
 ```
 Logistics-Presale-AI-Team/
-├── agents/                    # 10个核心Agent定义
+├── agents/                        # 11个核心Agent定义
 │   ├── ceo-agent.yaml
 │   ├── requirement-extractor.yaml
 │   ├── requirement-clarifier.yaml
@@ -78,51 +84,59 @@ Logistics-Presale-AI-Team/
 │   ├── risk-compliance.yaml
 │   ├── tender-writer.yaml
 │   ├── knowledge-base.yaml
-│   ├── qa-agent.yaml
+│   ├── qa-agent.yaml             ← v2.1修复：强制内联输入
 │   └── data-analyst.yaml
-├── workflows/                  # 工作流编排
-│   ├── tender-workflow.yaml
+│   └── README.md
+├── workflows/                     # 工作流编排
+│   ├── tender-workflow.yaml      ← v2.1重写：含状态管理+QA门禁
 │   ├── solution-design.yaml
-│   └── ppt-generation.yaml
-├── AI-Knowledge-Base/          # 知识库
-│   ├── automation_cases/       # 自动化案例
-│   ├── company_materials/      # 公司资质
-│   ├── cost_models/           # 成本模型参数
-│   ├── data_models/           # 数据分析模型
-│   ├── industry_reports/      # 行业报告
-│   ├── logistics_cases/       # 历史物流案例
-│   ├── solution_templates/   # 解决方案模板
-│   └── tender_examples/       # 投标案例参考
-├── porsche-rfq/               # 保时捷投标实战资料
-└── tender-analysis/           # 投标分析文档
+│   ├── ppt-generation.yaml
+│   └── project-init-template.md  ← v2.1新增：阶段0模板
+├── AI-Knowledge-Base/             # 知识库
+├── porsche-rfq/                  # 保时捷投标实战资料
+├── tender-analysis/               # 投标分析文档
+├── AGENTS_EXECUTION_GUIDE.md     ← v2.1新增：执行指南
+├── CHANGELOG.md                  ← v2.1新增：版本记录
+└── README.md
 ```
 
 ---
 
 ## 使用方法
 
-每个 Agent YAML 文件包含可直接使用的 `prompt_template`，在 OpenClaw 中通过 `sessions_spawn` 调用。
-
-### 示例调用流程
+### 1. 项目初始化（必须先执行）
 
 ```bash
-# 1. 提取招标文件需求
-sessions_spawn agent=requirement-extractor
+# 创建项目工作目录
+mkdir project_workspace/{project_name}/
 
-# 2. 方案设计
-sessions_spawn agent=logistics-architect
+# 复制阶段0模板
+cp workflows/project-init-template.md project_workspace/{project_name}/stage_0_project_assumptions.md
 
-# 3. 自动化推荐
-sessions_spawn agent=automation-solution
+# 填写假设文件（所有 P0 数据必须标注，待客户确认）
+```
 
-# 4. 成本建模
-sessions_spawn agent=cost-model
+### 2. 按工作流顺序执行 Agent
 
-# 5. 质量审核
-sessions_spawn agent=qa-agent
+建议使用 `sessions_spawn` 派发 Agent，每个 Agent 传入：
+- `input_files`：上一阶段输出文件的路径和内容
+- `label`：标准命名 `{project}-{stage-name}`
+- `timeout`：对应的时间限制
 
-# 6. 生成标书
-sessions_spawn agent=tender-writer
+详见 [AGENTS_EXECUTION_GUIDE.md](AGENTS_EXECUTION_GUIDE.md)
+
+### 3. QA 门禁
+
+- QA Agent 输出为 `FAIL` 时，流程阻塞，必须修复 P0 问题
+- P0 问题修复后重新执行对应 Agent，再进行 QA
+- QA 输出为 `CONDITIONAL PASS` 时，需确认 P1 问题是否可接受
+
+### 4. 完成后上传 Google Drive
+
+```bash
+gog drive mkdir "{ProjectName}_Analysis_{date}" --parent <parent_folder_id>
+gog drive upload stage_11_tender_draft.md --parent <folder_id>
+# ... 其他文档
 ```
 
 ---
@@ -136,3 +150,13 @@ QA Agent 是强制质量门禁：
 - **P2 一般问题** — 建议修复
 
 所有 P0 问题修复后，才能进入下一阶段。
+
+---
+
+## 关键数据库
+
+系统真正能力来自这三块：
+
+1. **自动化场景数据库** — `AI-Knowledge-Base/automation_cases/`
+2. **成本模型** — `AI-Knowledge-Base/cost_models/`
+3. **案例知识库** — `AI-Knowledge-Base/logistics_cases/`
